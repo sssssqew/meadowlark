@@ -5,20 +5,37 @@ handlebars = require('express-handlebars')
 		.create({ defaultLayout:'main' }),
 fortune = require('./lib/fortune.js');
 
+
 app
 		.use(express.static(__dirname + '/public'))
 		.set('port', process.env.PORT || 3000)
 		.engine('handlebars', handlebars.engine)
-		.set('view engine', 'handlebars');
-
-
+		.set('view engine', 'handlebars')
+		.use(function(req, res, next){
+			res.locals.showTests = app.get('env') !== 'production' &&
+					req.query.test === '1';
+			next();
+		});
+		
 app
 		.get('/', function(req, res){
 			res.render('home');
 		})
 		.get('/about', function(req, res){
-			res.render('about', { fortune: fortune.getFortune() });
+			res.render('about', { 
+				fortune: fortune.getFortune(),
+				pageTestScript: '/qa/tests-about.js' 
+			});
 		})
+		.get('/tours/hood-river', function(req, res){
+			res.render('tours/hood-river');
+		})
+		.get('/tours/oregon-coast', function(req, res){
+			res.render('tours/oregon-coast');
+		})
+		.get('/tours/request-group-rate', function(req, res){
+			res.render('tours/request-group-rate');
+		});
 
 
 app

@@ -1,4 +1,5 @@
 # npm에서 설치한 패키지를 무시합니다. 
 node_modules
+vendor
 *~
 .DS_Store
