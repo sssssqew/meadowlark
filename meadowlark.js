@@ -1,3 +1,4 @@
+// 진입점 (entry point)
 var express = require('express'),
 app = express(),
 // 핸들바 뷰 엔진 설정 
@@ -35,6 +36,12 @@ app
 		})
 		.get('/tours/request-group-rate', function(req, res){
 			res.render('tours/request-group-rate');
+		})
+		.get('/headers', function(req, res){
+			res.set('Content-Type', 'text/plain');
+			var s = '* client header information*\n\n';
+			for(var name in req.headers) s += name + ': ' + req.headers[name] + '\n';
+				res.send(s);
 		});
 
 
