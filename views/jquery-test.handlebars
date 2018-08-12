@@ -1,0 +1,21 @@
+{{!-- 레이아웃에서 특정 부분에 렌더링될 HTML코드를 정의함 --}}
+{{!-- meadowlark.js seciton helper 정의에서 name : 'head' 
+_sections.head의 값은 seciton 블록내 HTML코드가 된다 --}}
+
+
+{{#section 'head'}}
+	<!-- we want Google to ignore this page -->
+	<meta name="robots" content="noindex">
+{{/section}}
+
+<h1>Test page</h1>
+<p>We're testing some jQuery stuff.</p>
+{{#section 'jquery'}}
+	<script>
+		$('document').ready(function(){
+			setTimeout(function(){
+				$('h1').html('jQuery works');
+			}, 3000);
+		});
+	</script>
+{{/section}}
