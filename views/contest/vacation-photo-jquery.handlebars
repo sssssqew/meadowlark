@@ -1,0 +1,58 @@
+<span class="btn btn-default btn-file">
+	Upload
+	<input type="file" class="form-control" required accept="image/*" id="fieldPhoto" data-url="/upload" multiple name="photo">
+</span><br><br>
+<div class="container">
+	<p>------- 업로드 파일 목록 -------</p>
+	<div id="fileUploads"></div>
+</div>
+<br><br>
+
+
+{{#section 'head'}}
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css">
+{{/section}}
+
+{{#section 'jquery'}}
+	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
+	<script src="/vendor/jqfu/jquery.ui.widget.js"></script>
+	<script src="/vendor/jqfu/jquery.iframe-transport.js"></script>
+	<script src="/vendor/jqfu/jquery.fileupload.js"></script>
+	<script>
+		// ethan brown code
+		// $('document').ready(function(){
+		// 	$('#fieldPhoto').fileupload({
+		// 		dataType: 'json',
+		// 		done: function(e, data){
+		// 			$.each(data.result.files, function(index, file){
+		// 				$('#fileUploads').append($('<div class="upload">' + '<span class="glyphicon glyphicon-ok"></span>' + '&nbsp;' + file.originalName + '</div>'));
+		// 			})
+		// 		}
+		// 	})
+		// })
+
+		// my code
+		$('document').ready(function(){
+			$('#fieldPhoto').fileupload({
+				dataType: 'json',
+				done: function(e, data){
+					$.each(data.result.files, function(index, file){
+						var template = `
+							<div class="upload">
+								<img src="${decodeURI(file.url)}"
+									width="5%">
+								<span class="glyphicon glyphicon-ok">
+								</span>
+								<a href="${decodeURI(file.url)}">
+									${file.originalName}
+								</a>
+							</div>
+						`;
+						$('#fileUploads').append(template);
+						console.log(file.originalName + '(' + file.size / 1000 + ' KB)');
+					})
+				}
+			})
+		})
+	</script>
+{{/section}}

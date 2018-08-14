@@ -14,7 +14,9 @@ handlebars = require('express-handlebars')
 			}
 }),
 fortune = require('./lib/fortune.js'),
-database = require('./database.js');
+database = require('./database.js'),
+formidable = require('formidable'),
+jqupload = require('jquery-file-upload-middleware');
 
 function getWeatherData(){
 	return {
@@ -60,8 +62,19 @@ app
 			res.locals.partials.weatherContext = getWeatherData();
 			next();
 		})
-		.use(require('body-parser').urlencoded({ extended: true}));
-
+		.use(require('body-parser').urlencoded({ extended: true}))
+		// jquery file upload 
+		.use('/upload', function(req, res, next){
+			var now = Date.now();
+			jqupload.fileHandler({
+				uploadDir: function(){
+					return __dirname + '/public/uploads/' + now;
+				},
+				uploadUrl: function(){
+					return '/uploads/' + now;
+				},
+			})(req, res, next);
+		});
 
 // routing
 app
@@ -125,6 +138,30 @@ app
 		})
 		.get('/newsletter-ajax', function(req, res){
 			res.render('newsletter-ajax', { csrf: 'CSRF token goes here' });
+		})
+		.get('/contest/vacation-photo', function(req, res){
+			var now = new Date();
+			res.render('contest/vacation-photo', {
+				year: now.getFullYear(),
+				month: now.getMonth()
+			});
+		})
+		.post('/contest/vacation-photo/:year/:month', function(req, res){
+			var form = new formidable.IncomingForm();
+			form.parse(req, function(err, fields, files){
+				if(err) return res.redirect(303, '/error');
+				console.log('received fields:');
+				console.log(fields);
+				console.log('received files:');
+				console.log(files);
+				res.redirect(303, '/thank-you');
+			});
+		})
+		.get('/contest/vacation-photo-jquery', function(req, res){
+			res.render('contest/vacation-photo-jquery');
+		})
+		.get('/error', function(req, res){
+			res.render('error');
 		});
 
 
