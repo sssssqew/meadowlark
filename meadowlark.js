@@ -16,7 +16,11 @@ handlebars = require('express-handlebars')
 fortune = require('./lib/fortune.js'),
 database = require('./database.js'),
 formidable = require('formidable'),
-jqupload = require('jquery-file-upload-middleware');
+jqupload = require('jquery-file-upload-middleware'),
+credentials = require('./credentials.js'),
+VALID_EMAIL_REGEX = new RegExp(
+	'^[a-zA-Z0-9.!#$%&\'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$'
+);
 
 function getWeatherData(){
 	return {
@@ -74,11 +78,31 @@ app
 					return '/uploads/' + now;
 				},
 			})(req, res, next);
-		});
+		})
+		.use(require('cookie-parser')(credentials.cookieSecret))
+		.use(require('express-session')({
+			resave: false,
+			saveUninitialized: false,
+			secret: credentials.cookieSecret
+		}))
+		.use(function(req, res, next){
+			res.locals.flash = req.session.flash;
+			delete req.session.flash;
+			next();
+		})
 
 // routing
 app
 		.get('/', function(req, res){
+			if(req.cookies.monster){
+				console.log(req.cookies.monster);
+			}
+			if(req.signedCookies.signed_monster){
+				console.log(req.signedCookies.signed_monster);
+			}
+			res.cookie('monster', 'scary');
+			res.cookie('signed_monster', 'very scary', { signed: true, secure: true });
+			res.cookie('signed_sylee', 'genius', { signed: true, maxAge: new Date(), path: '/tours/hood-river' });
 			res.render('home');
 		})
 		.get('/about', function(req, res){
@@ -123,15 +147,28 @@ app
 			res.render('newsletter', { csrf: 'CSRF token goes here' });
 		})
 		.post('/process', function(req, res){
-			console.log('Form (from querystring): ' + req.query.form);
-			console.log('CSRF token (from hidden form field): ' + req.body._csrf);
-			console.log('Name (from visible form field): ' + req.body.name);
-			console.log('Email (from visible form field): ' + req.body.email);
-			if(req.xhr || req.accepts('json,html')==='json'){
-				res.send({ success: true });
-			}else{
-				res.redirect(303, '/thank-you');
+			// console.log('Form (from querystring): ' + req.query.form);
+			// console.log('CSRF token (from hidden form field): ' + req.body._csrf);
+			// console.log('Name (from visible form field): ' + req.body.name);
+			// console.log('Email (from visible form field): ' + req.body.email);
+			
+			// if(req.xhr || req.accepts('json,html')==='json'){
+			// 	res.send({ success: true });
+			// }else{
+			// 	res.redirect(303, '/thank-you');
+			// }
+
+			var name = req.body.name || '', email = req.body.email || '';
+			if(!email.match(VALID_EMAIL_REGEX)){
+				if(req.xhr) return res.json({ error: 'Invalid email address.' });
+				req.session.flash = {
+					type: 'danger',
+					intro: 'Validation error! ',
+					message: 'The email address you entered was not valid.',
+				};
+				return res.redirect(303, '/newsletter');
 			}
+			
 		})
 		.get('/thank-you', function(req, res){
 			res.render('thank-you');
