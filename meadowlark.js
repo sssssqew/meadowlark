@@ -20,7 +20,9 @@ jqupload = require('jquery-file-upload-middleware'),
 credentials = require('./credentials.js'),
 VALID_EMAIL_REGEX = new RegExp(
 	'^[a-zA-Z0-9.!#$%&\'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$'
-);
+),
+emailService = require('./lib/email.js')(credentials);
+
 
 function getWeatherData(){
 	return {
@@ -90,19 +92,32 @@ app
 			delete req.session.flash;
 			next();
 		})
+		.use(function(req, res, next){
+			console.log('processing request for "' + req.url + '"....');
+			next();
+		})
+		// .use(cartValidation.checkWaivers)
+		// .use(cartValidation.checkGuestCounts);
 
 // routing
 app
 		.get('/', function(req, res){
-			if(req.cookies.monster){
-				console.log(req.cookies.monster);
+			req.session.cart = {
+				packages: [
+					{
+						location: 'Seattle',
+						price: '$330'
+					},
+					{
+						location: 'New York',
+						price: '$270'
+					},
+					{
+						location: 'Sanfransisco',
+						price: '$570'
+					},
+				]
 			}
-			if(req.signedCookies.signed_monster){
-				console.log(req.signedCookies.signed_monster);
-			}
-			res.cookie('monster', 'scary');
-			res.cookie('signed_monster', 'very scary', { signed: true, secure: true });
-			res.cookie('signed_sylee', 'genius', { signed: true, maxAge: new Date(), path: '/tours/hood-river' });
 			res.render('home');
 		})
 		.get('/about', function(req, res){
@@ -147,16 +162,6 @@ app
 			res.render('newsletter', { csrf: 'CSRF token goes here' });
 		})
 		.post('/process', function(req, res){
-			// console.log('Form (from querystring): ' + req.query.form);
-			// console.log('CSRF token (from hidden form field): ' + req.body._csrf);
-			// console.log('Name (from visible form field): ' + req.body.name);
-			// console.log('Email (from visible form field): ' + req.body.email);
-			
-			// if(req.xhr || req.accepts('json,html')==='json'){
-			// 	res.send({ success: true });
-			// }else{
-			// 	res.redirect(303, '/thank-you');
-			// }
 
 			var name = req.body.name || '', email = req.body.email || '';
 			if(!email.match(VALID_EMAIL_REGEX)){
@@ -168,6 +173,7 @@ app
 				};
 				return res.redirect(303, '/newsletter');
 			}
+
 			
 		})
 		.get('/thank-you', function(req, res){
@@ -199,7 +205,77 @@ app
 		})
 		.get('/error', function(req, res){
 			res.render('error');
-		});
+		})
+		.get('/cart/checkout', function(req, res, next){
+			var cart = req.session.cart;
+			if(!cart) next();
+			res.render('cart-checkout', { cart: cart });
+		})
+		.post('/cart/checkout', function(req, res){
+			var cart = req.session.cart;
+			if(!cart) next(new Error('Cart does not exist.'));
+			var name = req.body.name || '', email = req.body.email || '';
+			if(!email.match(VALID_EMAIL_REGEX))
+				return res.next(new Error('Invalid email address.'));
+			cart.number = Math.random().toString().replace(/^0\.0*/, '');
+			cart.billing = { 
+				name: name,
+				email: email,
+			};
+			res.render('email/cart-thank-you',
+				{ layout: null, cart: cart }, function(err, html){
+					if(err) console.log('error in email template');
+					emailService.send(cart.billing.email, '[안녕하세요] 여행 가입을 축하드립니다 !!', html);
+				}
+			);
+			res.render('cart-thank-you', { cart: cart });
+		})
+
+		// 미들웨어 실습 
+		// .use(function(req, res, next){
+		// 	console.log('\n\nALLWAYS');
+		// 	next();
+		// })
+		// .get('/a', function(req, res){
+		// 	console.log('/a: route terminated');
+		// 	res.send('a');
+		// })
+		// .get('/a', function(req, res){
+		// 	console.log('/a: never called');
+		// })
+		// .get('/b', function(req, res, next){
+		// 	console.log('/b: route not terminated');
+		// 	next();
+		// })
+		// .use(function(req, res, next){
+		// 	console.log('SOMETIMES');
+		// 	next();
+		// })
+		// .get('/b', function(req, res, next){
+		// 	console.log('/b (part 2): error thrown');
+		// 	throw new Error('b failed');
+		// })
+		// .use('/b', function(err, req, res, next){
+		// 	console.log('/b error detected and passed on');
+		// 	next(err);
+		// })
+		// .get('/c', function(err, req){
+		// 	console.log('/c: error thrown');
+		// 	throw new Error('c failed');
+		// })
+		// .use('/c', function(err, req, res, next){
+		// 	console.log('/c: error detected but not passed on');
+		// 	next();
+		// })
+		// .use(function(err, req, res, next){
+		// 	console.log('unhandled error detected: ' + err.message);
+		// 	res.send('500 - server error');
+		// })
+		// .use(function(req, res){
+		// 	console.log('route not handled');
+		// 	res.send('404 - not found');
+		// })
+
 
 
 // error handling

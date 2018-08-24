@@ -1,0 +1,30 @@
+<h1>Your Shopping Cart</h1>
+{{#if cart.packages}}
+	<ul>
+		{{#each cart.packages}}
+			<li>{{location}}({{price}})</li>
+		{{/each}}
+	</ul>
+{{/if}}
+<p>Please provide your email address so we can send you a confirmation of your order.</p>
+<form class="form-horizontal newsletterForm" role="form" action="/cart/checkout" method="POST">
+	<div class="form-group">
+		<label for="fieldName" class="col-sm-2 control-label">Name</label>
+		<div class="col-sm-4">
+			<input type="text" class="form-control" required id="fieldName" name="name">
+		</div>
+	</div>
+	<div class="form-group">
+		<label for="fieldEmail" class="col-sm-2 control-label">Email</label>
+		<div class="col-sm-4">
+			<input type="text" class="form-control" required id="fieldEmail" name="email">
+		</div>
+	</div>
+	<div class="form-group">
+		<div class="col-sm-offest-2 col-sm-4">
+			<button class="btn btn-default">
+				Checkout
+			</button>
+		</div>
+	</div>
+</form>
