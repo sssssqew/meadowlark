@@ -23,6 +23,17 @@ VALID_EMAIL_REGEX = new RegExp(
 ),
 emailService = require('./lib/email.js')(credentials);
 
+// log middleware
+switch(app.get('env')){
+	case 'development':
+		app.use(require('morgan')('dev'));
+		break;
+	case 'production':
+		app.use(require('express-logger')({
+			path: __dirname + '/log/requests.log'
+		}));
+		break;
+}
 
 function getWeatherData(){
 	return {
@@ -52,12 +63,51 @@ function getWeatherData(){
 	}
 }
 
+var server;
+
 // config and middleware
 app
 		.use(express.static(__dirname + '/public'))
 		.set('port', process.env.PORT || 3000)
 		.engine('handlebars', handlebars.engine)
 		.set('view engine', 'handlebars')
+
+		// domain to handle all errors for this server
+		.use(function(req, res, next){
+			var domain = require('domain').create();
+			domain.on('error', function(err){
+				console.error('DOMAIN ERROR CAUGHT\n', err.stack);
+				try{
+					setTimeout(function(){
+						console.error('Failsafe shutdown.');
+						process.exit(1);
+					}, 5000);
+					
+					var worker = require('cluster').worker;
+					if(worker) worker.disconnect();
+					console.log('Worker %d disconnecting...', worker.id);
+
+					server.close();
+					console.log('alarming shutdown...');
+
+					try{
+						next(err);
+					}catch(err){
+						console.error('Express error mechanism failed.\n', err.stack);
+						res.statusCode = 500;
+						res.setHeader('content-type', 'text/plain');
+						res.end('Server error.');
+					}
+				}catch(err){
+					console.error('Unable to send 500 response.\n', err.stack);
+				}
+			});
+
+			domain.add(req);
+			domain.add(res);
+
+			domain.run(next);
+		})
 		.use(function(req, res, next){
 			res.locals.showTests = app.get('env') !== 'production' &&
 					req.query.test === '1';
@@ -93,9 +143,15 @@ app
 			next();
 		})
 		.use(function(req, res, next){
-			console.log('processing request for "' + req.url + '"....');
-			next();
+			var cluster = require('cluster');
+			if(cluster.isWorker) console.log('Worker %d received request',
+				cluster.worker.id);
+				next();
 		})
+		// .use(function(req, res, next){
+		// 	console.log('processing request for "' + req.url + '"....');
+		// 	next();
+		// })
 		// .use(cartValidation.checkWaivers)
 		// .use(cartValidation.checkGuestCounts);
 
@@ -230,52 +286,14 @@ app
 			);
 			res.render('cart-thank-you', { cart: cart });
 		})
-
-		// 미들웨어 실습 
-		// .use(function(req, res, next){
-		// 	console.log('\n\nALLWAYS');
-		// 	next();
-		// })
-		// .get('/a', function(req, res){
-		// 	console.log('/a: route terminated');
-		// 	res.send('a');
-		// })
-		// .get('/a', function(req, res){
-		// 	console.log('/a: never called');
-		// })
-		// .get('/b', function(req, res, next){
-		// 	console.log('/b: route not terminated');
-		// 	next();
-		// })
-		// .use(function(req, res, next){
-		// 	console.log('SOMETIMES');
-		// 	next();
-		// })
-		// .get('/b', function(req, res, next){
-		// 	console.log('/b (part 2): error thrown');
-		// 	throw new Error('b failed');
-		// })
-		// .use('/b', function(err, req, res, next){
-		// 	console.log('/b error detected and passed on');
-		// 	next(err);
-		// })
-		// .get('/c', function(err, req){
-		// 	console.log('/c: error thrown');
-		// 	throw new Error('c failed');
-		// })
-		// .use('/c', function(err, req, res, next){
-		// 	console.log('/c: error detected but not passed on');
-		// 	next();
-		// })
-		// .use(function(err, req, res, next){
-		// 	console.log('unhandled error detected: ' + err.message);
-		// 	res.send('500 - server error');
-		// })
-		// .use(function(req, res){
-		// 	console.log('route not handled');
-		// 	res.send('404 - not found');
-		// })
-
+		.get('/fail', function(req, res){
+			throw new Error('Nope!');
+		})
+		.get('/epic-fail', function(req, res){
+			process.nextTick(function(){
+				throw new Error('Kaboom!');
+			})
+		})
 
 
 // error handling
@@ -292,8 +310,16 @@ app
 			res.render('500');
 		})
 
+function startServer() {
+	server = app.listen(app.get('port'), function(){
+		console.log('Express started in ' + app.get('env') + 
+			' mode on http://localhost:' + app.get('port') + '; press Ctrl-C to terminate.');
+	});
+}
 
-app.listen(app.get('port'), function(){
-	console.log('Express started on https://localhost: ' +
-		app.get('port') + '; press Ctrl-C to terminate.');
-});
+if(require.main === module){
+	startServer();
+}else{
+	module.exports = startServer;
+}
+
