@@ -21,7 +21,95 @@ credentials = require('./credentials.js'),
 VALID_EMAIL_REGEX = new RegExp(
 	'^[a-zA-Z0-9.!#$%&\'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$'
 ),
-emailService = require('./lib/email.js')(credentials);
+emailService = require('./lib/email.js')(credentials),
+fs = require('fs'),
+dataDir = __dirname + '/data',
+vacationPhotoDir = dataDir + '/vacation-photo',
+
+
+// set database 
+mongoose = require('mongoose'),
+db = mongoose.connection,
+Vacation = require('./models/vacation.js'),
+VacationInSeasonListener = require('./models/vacationInSeasonListener.js'),
+MongoSessionStore = require('session-mongoose')(require('connect'));
+
+var sessionStore = new MongoSessionStore({
+	connection: db
+});
+
+db.on('error', console.error);
+db.once('open', () => { console.log('Connected to mongo db server'); });
+
+switch(app.get('env')){
+	case 'development':
+		mongoose.connect(credentials.mongo.development.url, { useNewUrlParser: true, keepAlive: 1 });
+		break;
+	case 'production':
+		mongoose.connect(credentials.mongo.production.url, { useNewUrlParser: true, keepAlive: 1 });
+		break;
+	default:
+		throw new Error('Unknown execution environment: ' + app.get('env'));
+}
+
+// make sample data for database
+Vacation.find(function(err, vacations){
+	if(err) return console.error(err);
+	if(vacations.length) return;
+
+	new Vacation({
+		name: 'Hood River Day Trip',
+		slug: 'hood-river-day-trip',
+		category: 'Day Trip',
+		sku: 'HR199',
+		description: 'Spend a day sailing on the Columbia and ' +
+			'enjoying craft beers in Hood River!',
+		priceInCents: 9995,
+		tags: ['day trip', 'hood river', 'sailing', 'windsurfing', 'breweries'],
+		inSeason: true,
+		maximumGuests: 16,
+		available: true,
+		packagesSold: 0,
+	}).save();
+
+	new Vacation({
+		name: 'Oregon Coast Getaway',
+		slug: 'oregon-coast-getaway',
+		category: 'Weekend Getaway',
+		sku: '0C39',
+		description: 'Enjoy the ocean air and quaint coastal towns!',
+		priceInCents: 269995,
+		tags: ['weekend getaway', 'oregon coast', 'beachcombing'],
+		inSeason: false,
+		maximumGuests: 8,
+		available: true,
+		packagesSold: 0,
+	}).save();
+
+	new Vacation({
+		name: 'Rock Climbing in Bend',
+		slug: 'rock-climbing-in-bend',
+		category: 'Adventure',
+		sku: 'B99',
+		description: 'Experience the thrill of climbing in the high desert.',
+		priceInCents: 289995,
+		tags: ['weekend getaway', 'bend', 'high desert', 'rock climbing'],
+		inSeason: true,
+		requiresWaiver: true,
+		maximumGuests: 4,
+		available: false,
+		packagesSold: 0,
+		notes: 'The tour guide is currently recovering from a skiing accident.',
+	}).save();
+
+	
+})
+
+// set filesystem
+fs.existsSync(dataDir) || fs.mkdirSync(dataDir);
+fs.existsSync(vacationPhotoDir) || fs.mkdirSync(vacationPhotoDir);
+
+
 
 // log middleware
 switch(app.get('env')){
@@ -61,6 +149,20 @@ function getWeatherData(){
 			},
 		]
 	}
+}
+
+// 화폐단위 변환 
+function convertFromUSD(value, currency){
+	switch(currency){
+		case 'USD': return value * 1;
+		case 'GBP': return value * 0.6;
+		case 'BTC': return value * 0.0023707918444761;
+		default: return NaN;
+	}
+}
+
+function saveContestEntry(contenstName, email, year, month, photoPath){
+	// TODO 
 }
 
 var server;
@@ -135,7 +237,8 @@ app
 		.use(require('express-session')({
 			resave: false,
 			saveUninitialized: false,
-			secret: credentials.cookieSecret
+			secret: credentials.cookieSecret,
+			store: sessionStore
 		}))
 		.use(function(req, res, next){
 			res.locals.flash = req.session.flash;
@@ -148,12 +251,7 @@ app
 				cluster.worker.id);
 				next();
 		})
-		// .use(function(req, res, next){
-		// 	console.log('processing request for "' + req.url + '"....');
-		// 	next();
-		// })
-		// .use(cartValidation.checkWaivers)
-		// .use(cartValidation.checkGuestCounts);
+		
 
 // routing
 app
@@ -248,12 +346,29 @@ app
 		.post('/contest/vacation-photo/:year/:month', function(req, res){
 			var form = new formidable.IncomingForm();
 			form.parse(req, function(err, fields, files){
-				if(err) return res.redirect(303, '/error');
-				console.log('received fields:');
-				console.log(fields);
-				console.log('received files:');
-				console.log(files);
-				res.redirect(303, '/thank-you');
+				// if(err) return res.redirect(303, '/error');
+				if(err){
+					res.session.flash = {
+						type: 'danger',
+						intro: 'Oops!',
+						message: 'There was an error processing your submission. ' +
+						'Please try again.',
+					};
+					return res.redirect(303, '/contenst/vacation-photo');
+				}
+				var photo = files.photo;
+				var dir = vacationPhotoDir + '/' + Date.now();
+				var path = dir + '/' + photo.name;
+				fs.mkdirSync(dir);
+				fs.renameSync(photo.path, path);
+				saveContestEntry('vacation-photo', fields.email, 
+					req.params.year, req.params.month, path);
+				req.session.flash = {
+					type: 'success',
+					intro: 'Good luck!',
+					message: 'You hav been entered into the contest.',
+				};
+				return res.redirect(303, '/contest/vacation-photo/entries');
 			});
 		})
 		.get('/contest/vacation-photo-jquery', function(req, res){
@@ -294,6 +409,80 @@ app
 				throw new Error('Kaboom!');
 			})
 		})
+		.get('/vacations', function(req, res){
+			Vacation.find({ available: true }, function(err, vacations){
+				// console.log(vacations.length);
+				var currency = req.session.currency || 'USD';
+				var context = {
+					vacations: vacations.map(function(vacation){
+						return {
+							sku: vacation.sku,
+							name: vacation.name,
+							description: vacation.description,
+							price: convertFromUSD(vacation.priceInCents/100, currency),
+							inSeason: vacation.inSeason,
+						}
+					})
+				};
+				switch(currency){
+					case 'USD': context.currencyUSD = 'selected'; break;
+					case 'GBP': context.currencyGBP = 'selected'; break;
+					case 'BTC': context.currencyBTC = 'selected'; break;
+				}
+				res.render('vacations', context);
+			})
+		})
+		.get('/notify-me-when-in-season', function(req, res){
+			res.render('notify-me-when-in-season', { sku: req.query.sku });
+		})
+		.post('/notify-me-when-in-season', function(req, res){
+			VacationInSeasonListener.update(
+				{ email: req.body.email },
+				{ $push: { skus: req.body.sku } },
+				{ upsert: true },
+				function(err){
+					if(err){
+						console.error(err.stack);
+						req.session.flash = {
+							type: 'danger',
+							intro: 'Ooops!',
+							message: 'There was an error processing your request.'
+						};
+						return res.redirect(303, '/vacations');
+					}
+					req.session.flash = {
+						type: 'success',
+						intro: 'Thank you!',
+						message: 'You will be notifid when this vacation is in season.',
+					};
+					return res.redirect(303, '/vacations');
+				}
+			)
+		})
+		.get('/cart', function(req, res, next){
+			var cart = req.session.cart;
+			if(!cart) next();
+			res.render('cart', { cart: cart });
+		})
+		// 세션 카트에 고객이 선택한 여행 패키지 상품을 추가함
+		.get('/cart/add', function(req, res, next){
+			if(req.session.cart) req.session.cart = {};
+			var cart = req.session.cart || (req.session.cart = { items: [] });
+			Vacation.findOne({ sku: req.query.sku }, function(err, vacation){
+				if(err) return next(err);
+				if(!vacation) return next(new Error('Unknown vacation SKU: ' + req.query.sku));
+				cart.items.push({
+					vacation: vacation,
+					guests: req.body.guests || 1,
+				});
+				res.redirect(303, '/cart');
+			});
+		})
+		.get('/set-currency/:currency', function(req, res){
+			req.session.currency = req.params.currency;
+			return res.redirect(303, '/vacations');
+		});
+
 
 
 // error handling

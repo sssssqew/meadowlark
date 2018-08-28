@@ -2,6 +2,7 @@
 node_modules
 vendor
 uploads
+data
 credentials.js
 *~
 log

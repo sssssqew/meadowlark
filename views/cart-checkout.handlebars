@@ -1,11 +1,12 @@
 <h1>Your Shopping Cart</h1>
-{{#if cart.packages}}
+{{#if cart.items}}
 	<ul>
-		{{#each cart.packages}}
-			<li>{{location}}({{price}})</li>
+		{{#each cart.items}}
+			<li>{{vacation.name}}({{guests}})</li>
 		{{/each}}
 	</ul>
 {{/if}}
+<h1>Checkout Email</h1>
 <p>Please provide your email address so we can send you a confirmation of your order.</p>
 <form class="form-horizontal newsletterForm" role="form" action="/cart/checkout" method="POST">
 	<div class="form-group">
