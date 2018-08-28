@@ -1,0 +1,19 @@
+<h1>contest photo list</h1>
+<ul>
+	{{#each photoList}}
+		<li>
+			<img src="{{url}}" alt="{{name}}" width="10%" height="auto">
+			<a href="{{url}}" target="_blank">{{name}}</a>
+		</li>
+	{{/each}}
+</ul>
+
+<a href='/contest/vacation-photo'>add photo for contest</a>
+
+{{#section 'head'}}
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css">
+{{/section}}
+
+{{#section 'jquery'}}
+	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
+{{/section}}

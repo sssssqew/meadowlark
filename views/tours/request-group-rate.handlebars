@@ -6,6 +6,8 @@
 	Email: <input type="email" name="email"><br>
 	<input type="submit" value="Submit">
 </form>
+
+{{#section 'jquery'}}
 <script>
 	// document.referrer : 링크를 클릭해서 여기로 온 경우 이전 링크주소 
 	$(document).ready(function(){
@@ -13,3 +15,4 @@
 		console.log(document.referrer);
 	});
 </script>
+{{/section}}

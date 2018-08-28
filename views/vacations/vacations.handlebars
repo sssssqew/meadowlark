@@ -1,16 +1,3 @@
-{{#section 'head'}}
-	<!-- we want Google to ignore this page -->
-	<style>
-	a.currency {
-		text-decoration: none;
-	}
-	.currency.selected {
-		font-weight: bold;
-		font-size: 150%;
-	}
-	</style>
-{{/section}}
-
 <h1>Vacations</h1>
 {{#each vacations}}
 	<div class="vacation">
@@ -36,3 +23,20 @@
 	<a href="/set-currency/GBP" class="currency {{currencyGBP}}">GBP</a> |
 	<a href="/set-currency/BTC" class="currency {{currencyBTC}}">BTC</a>
 </p>
+
+{{#section 'head'}}
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css">
+	<style>
+	a.currency {
+		text-decoration: none;
+	}
+	.currency.selected {
+		font-weight: bold;
+		font-size: 150%;
+	}
+	</style>
+{{/section}}
+
+{{#section 'jquery'}}
+	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
+{{/section}}
