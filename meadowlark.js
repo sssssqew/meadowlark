@@ -61,6 +61,7 @@ switch(app.get('env')){
 
 
 var server;
+var bodyParser = require('body-parser');
 
 // config and middleware
 app
@@ -115,7 +116,8 @@ app
 			res.locals.partials.weatherContext = database.getWeatherData();
 			next();
 		})
-		.use(require('body-parser').urlencoded({ extended: true}))
+		.use(bodyParser.urlencoded({ extended: true}))
+		.use(bodyParser.json())
 		// jquery file upload 
 		.use('/upload', function(req, res, next){
 			var now = Date.now();
@@ -147,7 +149,8 @@ app
 				next();
 		})
 		// handle admin sub domain
-		.use(vhost('admin.*', admin));
+		.use(vhost('admin.*', admin))
+		.use('/api', require('cors')());
 
 
 	// make sample data for database
@@ -217,6 +220,11 @@ app.use(function(req, res, next){
 	}
 	next();
 })
+
+
+// rest api
+require('./api-routes.js')(app);
+
 
 // error handler
 app

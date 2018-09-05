@@ -11,7 +11,8 @@ suite('Stress tests', function(){
 		loadtest.loadTest(options, function(err, result){
 			expect(!err);
 			expect(result.totalTimeSeconds < 1);
+			done();
 		})
-		done();
+		
 	})
 })

@@ -18,4 +18,5 @@ if(cluster.isMaster){
 	}); 
 }else{
 	require('./meadowlark.js')();
+	// require('./rest-api.js')();
 }
