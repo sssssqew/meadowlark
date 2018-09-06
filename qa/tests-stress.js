@@ -12,7 +12,7 @@ suite('Stress tests', function(){
 			expect(!err);
 			expect(result.totalTimeSeconds < 1);
 			done();
-		})
+		});
 		
-	})
-})
+	});
+});

@@ -5,7 +5,7 @@
 		<p>{{description}}</p>
 		{{#if inSeason}}
 			<span class="price">{{price}}</span>
-			<a href="/cart/add?sku={{sku}}" class="btn btn-default">Buy Now!</a>
+			<a href="/cart/add?sku={{sku}}" data-action="cart-add" data-sku="{{sku}}" class="btn btn-default">Buy Now!</a>
 		{{else}}
 			<span class="outOfSeason">
 				We're sorry, this vacation is currently not in season.
@@ -39,4 +39,26 @@
 
 {{#section 'jquery'}}
 	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
+	<script>
+		// $(document).ready(function(){
+		// 	$('[data-action="cart-add"]').on('click', function(){
+		// 		var $this = $(this);
+		// 		$.post($this.attr('href'), { sku: $this.data('sku'), guests: 1 })
+		// 			.done(function(){
+		// 				cart.addItem($this.data('sku'));
+		// 				$('<span class="badge">Vacation added!</span>')
+		// 				.hide()
+		// 				.insertAfter($this)
+		// 				.fadeIn();
+		// 			})
+		// 			.fail(function(){
+		// 				$('<span class="badge">Error! Please try again.</span>')
+		// 				.hide()
+		// 				.insertAfter($this)
+		// 				.fadeIn();
+		// 			});
+		// 		return false;
+		// 	})
+		// })
+	</script>
 {{/section}}

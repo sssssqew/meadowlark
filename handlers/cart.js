@@ -5,6 +5,19 @@ var credentials = require('../credentials.js');
 var emailService = require('../lib/email.js')(credentials);
 var Vacation = require('../models/vacation.js');
 
+function addToCart(sku, guests, req, res, next){
+	var cart = req.session.cart || (req.session.cart = { items: [] }); // 좋은 코드
+	Vacation.findOne({ sku: req.query.sku }, function(err, vacation){
+		if(err) return next(err);
+		if(!vacation) return next(new Error('Unknown vacation SKU: ' + req.query.sku));
+		cart.items.push({
+			vacation: vacation,
+			guests: req.body.guests || 1,
+			sku: sku
+		});
+		res.redirect(303, '/cart'); // 미들웨어를 거침 
+	});
+}
 
 exports.checkoutHome = function(req, res, next){
 	var cart = req.session.cart;
@@ -39,16 +52,9 @@ exports.Home = function(req, res, next){
 }
 
 exports.add = function(req, res, next){
-	if(!req.session.cart.items)
-		req.session.cart.items = [];
-	var cart =  req.session.cart;
-	Vacation.findOne({ sku: req.query.sku }, function(err, vacation){
-		if(err) return next(err);
-		if(!vacation) return next(new Error('Unknown vacation SKU: ' + req.query.sku));
-		cart.items.push({
-			vacation: vacation,
-			guests: req.body.guests || 1,
-		});
-		res.redirect(303, '/cart');
-	});
-}
+	addToCart(req.query.sku, req.query.guests, req, res, next);
+};
+
+exports.addPost = function(req, res, next){
+	addToCart(req.body.sku, req.body.guests, req, res, next);
+};

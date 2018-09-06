@@ -34,8 +34,8 @@ suite('API tests', function(){
 						assert(data.name === attraction.name);
 						assert(data.description === attraction.description);
 						done();
-					})
+					});
 			});
 		
-	})
-})
+	});
+});

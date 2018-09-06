@@ -14,6 +14,7 @@
   "dependencies": {
     "body-parser": "^1.18.3",
     "connect": "^2.19.5",
+    "connect-bundle": "0.0.5-beta",
     "connect-rest": "^0.9.12",
     "cookie-parser": "^1.1.0",
     "cors": "^2.3.1",
@@ -34,11 +35,16 @@
   "devDependencies": {
     "chai": "^4.1.2",
     "grunt": "^0.4.5",
-    "grunt-cafe-mocha": "^0.1.12",
-    "grunt-contrib-jshint": "^0.10.0",
+    "grunt-cafe-mocha": "^0.1.13",
+    "grunt-contrib-cssmin": "^2.2.1",
+    "grunt-contrib-jshint": "^1.1.0",
+    "grunt-contrib-less": "^2.0.0",
+    "grunt-contrib-uglify": "^4.0.0",
     "grunt-exec": "^0.4.5",
+    "grunt-hashres": "^0.4.1",
+    "grunt-lint-pattern": "^0.1.4",
     "mocha": "~1.20.1",
     "restler": "^3.2.2",
-    "zombie": "~2.0.0-alpha31"
+    "zombie": "^5.0.8"
   }
 }

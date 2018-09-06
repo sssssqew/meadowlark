@@ -10,6 +10,9 @@ handlebars = require('express-handlebars')
 					if(!this._sections) this._sections = {};
 					this._sections[name] = options.fn(this);
 					return null;
+				},
+				static: function(name) {
+					return require('./lib/static.js').map(name);
 				}
 			}
 }),
@@ -20,20 +23,24 @@ Vacation = require('./models/vacation.js'),
 
 vhost = require('vhost'),
 admin = express.Router(),
+static = require('./lib/static.js').map;
 
 
 // set database 
-mongoose = require('mongoose'),
-db = mongoose.connection,
+var mongoose = require('mongoose');
+var db = mongoose.connection;
 
-MongoSessionStore = require('session-mongoose')(require('connect'));
+var connectModule = require('connect');
+var sessionMongoose = require('session-mongoose');
+var MongoSessionStore = sessionMongoose(connectModule);
+
 
 var sessionStore = new MongoSessionStore({
 	connection: db
 });
 
 db.on('error', console.error);
-db.once('open', () => { console.log('Connected to mongo db server'); });
+db.once('open', function() { console.log('Connected to mongo db server'); });
 
 switch(app.get('env')){
 	case 'development':
@@ -62,6 +69,30 @@ switch(app.get('env')){
 
 var server;
 var bodyParser = require('body-parser');
+var Attraction = require('./models/attraction.js');
+
+
+// set up css/js bundling
+var configs = require('./config.js');
+var connectBunddle = require('connect-bundle');
+var bundler = connectBunddle(configs);
+var rest = require('connect-rest');
+var apiOptions = {
+	context: '/api',
+	domain: require('domain').create(),
+};
+
+apiOptions.domain.on('error', function(err){
+	console.log('API domain error.\n', err.stack);
+	setTimeout(function(){
+		console.log('Server shutting down after API domain error.');
+		process.exit(1);
+	}, 5000);
+	server.close();
+	var worker = require('cluster').worker;
+	if(worker) worker.disconnect();
+});
+
 
 // config and middleware
 app
@@ -69,6 +100,7 @@ app
 		.set('port', process.env.PORT || 3000)
 		.engine('handlebars', handlebars.engine)
 		.set('view engine', 'handlebars')
+		
 
 		// domain to handle all errors for this server
 		.use(function(req, res, next){
@@ -89,15 +121,15 @@ app
 					console.log('alarming shutdown...');
 
 					try{
-						next(err);
-					}catch(err){
-						console.error('Express error mechanism failed.\n', err.stack);
+						next(e);
+					}catch(e){
+						console.error('Express error mechanism failed.\n', e.stack);
 						res.statusCode = 500;
 						res.setHeader('content-type', 'text/plain');
 						res.end('Server error.');
 					}
-				}catch(err){
-					console.error('Unable to send 500 response.\n', err.stack);
+				}catch(ee){
+					console.error('Unable to send 500 response.\n', ee.stack);
 				}
 			});
 
@@ -150,7 +182,25 @@ app
 		})
 		// handle admin sub domain
 		.use(vhost('admin.*', admin))
-		.use('/api', require('cors')());
+		.use('/api', require('cors')())
+		.use(function(req, res, next){
+			var now = new Date();
+			// console.log(now.getMonth());
+			// console.log(now.getDate());
+			res.locals.logoImage = now.getMonth()==9 && now.getDate()==6 ?
+					static('/img/logo_jini.png') :
+					static('/img/logo.png');
+			next();
+		})
+		// middleware to provide cart data for header
+		.use(function(req, res, next){
+			console.log(req.session.cart);
+			var cart = req.session.cart;
+			res.locals.cartItems = cart && cart.items ? cart.items.length : 0;
+			next();
+		})
+		.use(rest.rester(apiOptions))
+		.use(bundler);
 
 
 	// make sample data for database
@@ -219,12 +269,55 @@ app.use(function(req, res, next){
 		return res.render(autoViews[path]);
 	}
 	next();
-})
+});
 
 
 // rest api
-require('./api-routes.js')(app);
+// require('./api-routes.js')(app);
+// 위의 apiOptions 부터의 코드가 반드시 아래 코드보다 위에 있어야 함
+rest.get('/attractions', function(req, content, cb){
+	Attraction.find({ approved: false }, function(err, attractions){
+		if(err) return cb({ error: 'Internal error. '});
+		cb(null, attractions.map(function(a){
+			return {
+				name: a.name,
+				description: a.description,
+				location: a.location,
+			};
+		}));
+	});
+});
 
+rest.post('/attraction',  function(req, content, cb){
+	// console.log(req.body);
+	var a = new Attraction({
+		name: req.body.name,	
+		description: req.body.description,
+		location: { lat: req.body.lat, lng: req.body.lng },
+		history: {
+			event: 'created',
+			email: req.body.email,
+			date: new Date(),
+		},
+		approved: false,
+	});
+
+	a.save(function(err, a){
+		if(err) return cb({ error: 'Unable to add attraction.' });
+		cb(null, { id: a._id });
+	});
+});
+
+rest.get('/attraction/:id',  function(req, content, cb){
+	Attraction.findById(req.params.id, function(err, a){
+		if(err) return cb({ error: 'Unable to retrieve attraction.' });
+		cb(null, {
+			name: a.name,
+			description: a.description,
+			location: a.location,
+		});
+	});
+});
 
 // error handler
 app
@@ -238,7 +331,7 @@ app
 			console.error(err.stack);
 			res.status(500);
 			res.render('500');
-		})
+		});
 
 function startServer() {
 	server = app.listen(app.get('port'), function(){

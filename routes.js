@@ -47,6 +47,7 @@ app
 		.post('/cart/checkout', cart.checkoutPost) //^
 		// 세션 카트에 고객이 선택한 여행 패키지 상품을 추가함
 		.get('/cart/add', cart.add) //^
+		// .post('/cart/add', cart.addPost) //^
 
 
 		.get('/vacations', vacations.list) //^

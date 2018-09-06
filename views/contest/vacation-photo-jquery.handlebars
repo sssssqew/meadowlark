@@ -15,9 +15,9 @@
 
 {{#section 'jquery'}}
 	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
-	<script src="/vendor/jqfu/jquery.ui.widget.js"></script>
-	<script src="/vendor/jqfu/jquery.iframe-transport.js"></script>
-	<script src="/vendor/jqfu/jquery.fileupload.js"></script>
+	<script src={{static '/vendor/jqfu/jquery.ui.widget.js'}}></script>
+	<script src={{static '/vendor/jqfu/jquery.iframe-transport.js'}}></script>
+	<script src={{static '/vendor/jqfu/jquery.fileupload.js'}}></script>
 	<script>
 		// ethan brown code
 		// $('document').ready(function(){
@@ -39,11 +39,11 @@
 					$.each(data.result.files, function(index, file){
 						var template = `
 							<div class="upload">
-								<img src="${decodeURI(file.url)}"
+								<img src="{{static ${decodeURI(file.url)}}}"
 									width="5%">
 								<span class="glyphicon glyphicon-ok">
 								</span>
-								<a href="${decodeURI(file.url)}" target="_blank">
+								<a href="{{static ${decodeURI(file.url)}}}" target="_blank">
 									${file.originalName}
 								</a>
 							</div>

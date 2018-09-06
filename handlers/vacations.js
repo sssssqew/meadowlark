@@ -3,6 +3,7 @@ var VacationInSeasonListener = require('../models/vacationInSeasonListener.js');
 var helpers = require('../helpers.js');
 
 exports.list = function(req, res){
+	// req.session.data = {};
 	Vacation.find({ available: true }, function(err, vacations){
 		// console.log(vacations.length);
 		var currency = req.session.currency || 'USD';
