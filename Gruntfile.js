@@ -23,6 +23,10 @@ module.exports = function(grunt){
 			app: ['meadowlark.js', 'public/js/**/*.js', 'lib/**/*.js'],
 			qa: ['Gruntfile.js', 'public/qa/**/*.js', 'qa/**/*.js'],
 		},
+		exec: {
+			linkchecker:
+			     { cmd: 'linkchecker --ignore-url=\'!^(https?:)\/\/localhost\b\' --ignore-url=/cart/add --no-warnings http://localhost:3000' }
+		},
 		less: {
 			development: {
 				options: {
@@ -110,10 +114,6 @@ module.exports = function(grunt){
 					]
 				}
 			}
-		},
-		exec: {
-			linkchecker:
-			     { cmd: 'linkchecker --ignore-url=\'!^(https?:)\/\/localhost\b\' --ignore-url=/cart/add --no-warnings http://localhost:3000' }
 		},
 	});
 

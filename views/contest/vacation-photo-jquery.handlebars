@@ -39,11 +39,11 @@
 					$.each(data.result.files, function(index, file){
 						var template = `
 							<div class="upload">
-								<img src="{{static ${decodeURI(file.url)}}}"
+								<img src="${decodeURI(file.url)}"
 									width="5%">
 								<span class="glyphicon glyphicon-ok">
 								</span>
-								<a href="{{static ${decodeURI(file.url)}}}" target="_blank">
+								<a href="${decodeURI(file.url)}" target="_blank">
 									${file.originalName}
 								</a>
 							</div>

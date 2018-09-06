@@ -1,1 +1,0 @@
-console.log("shopping cart initialized"),console.log("contact forms initialized");
