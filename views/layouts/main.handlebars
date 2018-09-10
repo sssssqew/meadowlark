@@ -18,14 +18,18 @@
 </head>
 <body>
 	<header>
-		<img src="{{logoImage}}" alt="Meadowlark Travel logo" width="5%">
-		<h1>Meadowlark Travel</h1>
-		<br><br>
+		<div class="align-left">
+			<img src="{{logoImage}}" alt="Meadowlark Travel logo" width="5%" height="auto">
+			<h3>Meadowlark Travel</h3>
+		</div>
+		<hr>
 	<div >
 			{{#if cartItems}}
-				<a href="/cart"><img src="{{static '/img/shop/cart_full.png'}}" alt="Cart Contains {{cartItems}}" class="cartIcon"></a>
+				<a href="/cart"><img src="{{static '/img/shop/cart_full.png'}}" alt="Cart Contains {{cartItems}}" class="cartIcon"><br>
+					cart full</a>
 			{{else}}
-				<a href="/cart"><img src="{{static '/img/shop/cart_empty.png'}}" alt="Cart Empty" class="cartIcon"></a>
+				<a href="/cart"><img src="{{static '/img/shop/cart_empty.png'}}" alt="Cart Empty" class="cartIcon"><br>
+					cart empty</a>
 			{{/if}}
 		</div>
 	</header>
