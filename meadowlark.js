@@ -33,7 +33,7 @@ var db = mongoose.connection;
 var connectModule = require('connect');
 var sessionMongoose = require('session-mongoose');
 var MongoSessionStore = sessionMongoose(connectModule);
-
+var csurf = require('csurf');
 
 var sessionStore = new MongoSessionStore({
 	connection: db
@@ -81,6 +81,9 @@ var apiOptions = {
 	context: '/api',
 	domain: require('domain').create(),
 };
+
+require('dotenv').config();
+
 
 apiOptions.domain.on('error', function(err){
 	console.log('API domain error.\n', err.stack);
@@ -169,6 +172,11 @@ app
 			secret: credentials.cookieSecret,
 			store: sessionStore
 		}))
+		.use(csurf())
+		.use(function(req, res, next){
+			res.locals._csrfToken = req.csrfToken();
+			next();
+		})
 		.use(function(req, res, next){
 			res.locals.flash = req.session.flash;
 			delete req.session.flash;
@@ -257,6 +265,64 @@ app
 // routes
 require('./routes.js')(app);
 
+
+// facebook login
+var auth = require('./lib/auth.js')(app, {
+	baseUrl: process.env.BASE_URL,
+	providers: credentials.authProviders,
+	successRedirect: '/account',
+	failureRedirect: '/unauthorized',
+});
+
+auth.init();
+auth.registerRoutes();
+
+function customerOnly(req, res, next){
+	if(req.user && req.user.role === 'customer') return next();
+	res.redirect(303, '/unauthorized');
+}
+function employeeOnly(req, res, next){
+	if(req.user && req.user.role === 'employee') return next();
+	// 해커가 unathorized 페이지조차 알지 못하게 해서 보안 강화함 
+	next('route'); // 404 페이지로 이동
+}
+function allow(roles){
+	return function(req, res, next) {
+		if(req.user && roles.split(',').indexOf(req.user.role) !== -1) return next();
+		res.redirect(303, '/unauthorized');
+	};
+}
+app.get('/unauthorized', function(req, res){
+	res.status(403).render('unauthorized');
+});
+
+// 고객용 라우트 
+app.get('/login', function(req, res){
+	res.render('login');
+});
+app.get('/account', allow('customer,employee'), function(req, res){
+	res.render('account', { user: req.user });
+});
+
+app.get('/logout', function(req, res){
+	req.logout();
+	// 로그아웃되면서 세션이 제거되는 시간이 필요함 
+	// 세션이 제거되면 리디렉션한다 
+	req.session.save(function(){
+		req.session.flash = {
+			type: 'success',
+			intro: 'LOGOUT!',
+			message: 'You logged out successfully',
+		};
+		res.redirect('/login');
+	})
+})
+
+// 직원용 라우트 
+app.get('/sales', employeeOnly, function(req, res){
+	res.render('sales');
+})
+
 // auto view rendering
 var autoViews = {};
 var fs = require('fs');
@@ -319,6 +385,7 @@ rest.get('/attraction/:id',  function(req, content, cb){
 	});
 });
 
+
 // error handler
 app
 		// 404 폴백 핸들러 (미들웨어)
@@ -333,10 +400,25 @@ app
 			res.render('500');
 		});
 
+var https = require('https');
+
 function startServer() {
-	server = app.listen(app.get('port'), function(){
+	var keyFile = __dirname + '/ssl/meadowlark.pem',
+		certFile = __dirname + '/ssl/meadowlark.crt';
+	if(!fs.existsSync(keyFile) || !fs.existsSync(certFile)) {
+		console.error('\n\nERROR: One or both of the SSL cert or key are missing:\n' +
+			'\t' + keyFile + '\n' +
+			'\t' + certFile + '\n' +
+			'You can generate these files using openssl; please refer to the book for instructions.\n');
+		process.exit(1);
+	}
+	var options = {
+		key: fs.readFileSync(__dirname + '/ssl/meadowlark.pem'),
+		cert: fs.readFileSync(__dirname + '/ssl/meadowlark.crt')
+	};
+	server = https.createServer(options, app).listen(app.get('port'), function(){
 		console.log('Express started in ' + app.get('env') + 
-			' mode on http://localhost:' + app.get('port') + '; press Ctrl-C to terminate.');
+			' mode on https://localhost:' + app.get('port') + ' using HTTPS.; press Ctrl-C to terminate.');
 	});
 }
 

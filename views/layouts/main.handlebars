@@ -18,9 +18,10 @@
 </head>
 <body>
 	<header>
-		<img src="{{logoImage}}" alt="Meadowlark Travel logo" width="20%">
+		<img src="{{logoImage}}" alt="Meadowlark Travel logo" width="5%">
 		<h1>Meadowlark Travel</h1>
-		<div class="col-sm-2 pull-right">
+		<br><br>
+	<div >
 			{{#if cartItems}}
 				<a href="/cart"><img src="{{static '/img/shop/cart_full.png'}}" alt="Cart Contains {{cartItems}}" class="cartIcon"></a>
 			{{else}}
@@ -35,7 +36,9 @@
 				<strong>{{flash.intro}}</strong>{{{flash.message}}}
 		</div>
 	{{/if}}
+		
 	{{{ body }}}
+	
 	<footer>&copy; 2018 Meadowlark Travel</footer>
 	{{#if showTests}}
 		<div id="mocha"></div>

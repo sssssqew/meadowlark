@@ -13,7 +13,7 @@ module.exports = {
 
 		clientCss: {
 			main: {
-				file: '/css/meadowlark.min.cc3a44bd.css',
+				file: '/css/meadowlark.min.a4462858.css',
 				contents: [
 					'/css/main.css',
 					'/css/cart.css',
