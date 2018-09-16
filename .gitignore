@@ -6,4 +6,5 @@ public/data
 credentials.js
 *~
 log
+.env
 .DS_Store
