@@ -35,6 +35,42 @@ var sessionMongoose = require('session-mongoose');
 var MongoSessionStore = sessionMongoose(connectModule);
 var csurf = require('csurf');
 
+var Q = require('q');
+var topTweets = {
+	count: 10,
+	lastRefreshed: 0,
+	refreshInterval: 15 * 60 * 1000,
+	tweets: [],
+};
+var twitter = require('./lib/twitter.js')({
+	consumerKey: credentials.twitter.consumerKey,
+	consumerSecret: credentials.twitter.consumerSecret,
+});
+
+function getTopTweets(cb){
+	if(Date.now() < topTweets.lastRefreshed + topTweets.refreshInterval){
+		return cb(topTweets.tweets);
+	}
+
+	twitter.search('#조덕제', topTweets.count, function(result){
+		var formattedTweets = [];
+		var promises = [];
+		var embedOpts = { omit_script: 1 };
+		result.statuses.forEach(function(status){
+			var deferred = Q.defer();
+			twitter.embed(status.id_str, embedOpts, function(embed){
+				formattedTweets.push(embed.html);
+				deferred.resolve();
+			});
+			promises.push(deferred.promise);
+		});
+		Q.all(promises).then(function(){
+			topTweets.lastRefreshed = Date.now();
+			cb(topTweets.tweets = formattedTweets);
+		});
+	});
+}
+
 var sessionStore = new MongoSessionStore({
 	connection: db
 });
@@ -70,7 +106,8 @@ switch(app.get('env')){
 var server;
 var bodyParser = require('body-parser');
 var Attraction = require('./models/attraction.js');
-
+var Dealer = require('./models/dealer.js');
+var fs = require('fs');
 
 // set up css/js bundling
 var configs = require('./config.js');
@@ -148,6 +185,12 @@ app
 		})
 		.use(function(req, res, next){
 			if(!res.locals.partials) res.locals.partials = {};
+			// 언더그라운드에서 무료 API키를 더이상 발급해주지 않아 테스트는 못해봄 
+			// 만약 키가 있다면 database.getWeatherData()를 getWeatherData()로 교체함 
+			// 그럼 요청을 보낼때마다 날씨 데이터를 가져오는데 
+			// 만약 날씨 데이터를 마지막으로 가져온지 1시간이 채 되지 않았으면 
+			// 미들웨어 요청을 하더라도 언더그라운드 사이트에 접속하지 않고 이전 데이터를 캐쉬해서 그대로 돌려줌 
+			// 1시간이 지나야 요청했을때 새로운 데이터를 가져옴 
 			res.locals.partials.weatherContext = database.getWeatherData();
 			next();
 		})
@@ -208,7 +251,13 @@ app
 			next();
 		})
 		.use(rest.rester(apiOptions))
-		.use(bundler);
+		.use(bundler)
+		.use(function(req, res, next){
+			getTopTweets(function(tweets){
+				res.locals.topTweets = tweets;
+				next();
+			});
+		});
 
 
 	// make sample data for database
@@ -261,6 +310,218 @@ app
 			notes: 'The tour guide is currently recovering from a skiing accident.',
 		}).save();	
 	});
+
+
+// initialize dealers
+Dealer.find(function(err, dealers){
+    if(dealers.length) return;
+	
+	new Dealer({
+		name: 'Oregon Novelties',
+		address1: '912 NW Davis St',
+		city: 'Portland',
+		state: 'OR',
+		zip: '97209',
+		country: 'US',
+		phone: '503-555-1212',
+		active: true,
+	}).save();
+
+	new Dealer({
+		name: 'Bruce\'s Bric-a-Brac',
+		address1: '159 Beeswax Ln',
+		city: 'Manzanita',
+		state: 'OR',
+		zip: '97209',
+		country: 'US',
+		phone: '503-555-1212',
+		active: true,
+	}).save();
+
+	new Dealer({
+		name: 'Aunt Beru\'s Oregon Souveniers',
+		address1: '544 NE Emerson Ave',
+		city: 'Bend',
+		state: 'OR',
+		zip: '97701',
+		country: 'US',
+		phone: '503-555-1212',
+		active: true,
+	}).save();
+
+	new Dealer({
+		name: 'Oregon Goodies',
+		address1: '1353 NW Beca Ave',
+		city: 'Corvallis',
+		state: 'OR',
+		zip: '97330',
+		country: 'US',
+		phone: '503-555-1212',
+		active: true,
+	}).save();
+
+	new Dealer({
+		name: 'Oregon Grab-n-Fly',
+		address1: '7000 NE Airport Way',
+		city: 'Portland',
+		state: 'OR',
+		zip: '97219',
+		country: 'US',
+		phone: '503-555-1212',
+		active: true,
+	}).save();
+});
+
+// geocoding
+function geocodeDealer(dealer){
+	console.log(dealerCache.geocodeCount)
+	console.log("time: ",Date.now()) // 계속 실행되는지 확인하는 코드 
+
+	var addr = dealer.getAddress(' ');
+	// 만약 주소가 변경된다면 아래조건은 만족하지 않으므로 
+	// 새로 지오코딩하고 변경된 주소를 dealer.geocodedAddress 에 저장함
+	if(addr === dealer.geocodedAddress) return;
+	
+	if(dealerCache.geocodeCount >= dealerCache.geocodeLimit){
+		// 사용제한(2000번)을 다 썻더라도 하루가 지났으므로 
+		// 카운트를 0으로 변경하고 계속 구글 지오코딩을 사용할 수 있음 
+		if(Date.now() > dealerCache.geocodeBegin + 24 * 60 * 60 * 1000){
+			dealerCache.geocodeBegin = Date.now();
+			dealerCache.geocodeCount = 0;
+		// 하루가 채 지나지도 않았는데 사용제한(2000번)을 다 쓴 경우에는
+		// 더이상 지오코딩을 할 수 없으므로 곧바로 리턴함 
+		}else{	
+			return;
+		}
+	}
+	var geocode = require('./lib/geocode.js');
+	geocode(addr, function(err, coords){
+		// 요청이 실패했든 성공했든 요청을 했으므로 카운팅을 해줘야 함
+		dealerCache.geocodeCount++;
+		if(err) return console.log('Geocoding failure for ' + addr);
+		dealer.lat = coords.lat;
+		dealer.lng = coords.lng;
+		dealer.geocodedAddress = addr; // 이 코드가 있어야 이미 지오코딩한건 스킵할 수 있음
+		dealer.save();
+	});
+}
+
+// optimize performance of dealer display
+function dealersToGoogleMaps(dealers){
+    var js = 'function addMarkers(map){\n' +
+        'var markers = [];\n' +
+        'var Marker = google.maps.Marker;\n' +
+        'var LatLng = google.maps.LatLng;\n';
+    dealers.forEach(function(d){
+        var name = d.name.replace(/'/, '\\\'')
+            .replace(/\\/, '\\\\');
+        js += 'markers.push(new Marker({\n' +
+                '\tposition: new LatLng(' +
+                    d.lat + ', ' + d.lng + '),\n' +
+                '\tmap: map,\n' +
+                '\ttitle: \'' + name.replace(/'/, '\\') + '\',\n' +
+            '}));\n';
+    });
+    js += '}';
+    return js;
+}
+
+var dealerCache = {
+	lastRefreshed: 0,
+	refreshInterval: 5 * 1000, // 1000 = 1초
+	jsonUrl: '/dealers.json',
+	geocodeLimit: 2000,
+	geocodeCount: 0,
+	geocodeBegin: 0,
+};
+dealerCache.jsonFile = __dirname + 
+		'/public' + dealerCache.jsonUrl;
+
+dealerCache.refresh = function(cb){
+	console.log('-----------------------')
+	console.log('refresh start!')
+	console.log('-----------------------')
+
+	if(Date.now() >= dealerCache.lastRefreshed + dealerCache.refreshInterval){
+		// 지오코딩을 새로 하고 캐쉬파일을 새로 업데이트함
+		Dealer.find({active: true}, function(err, dealers){
+			if(err) return console.log('Error fetching dealers: ' + err);
+			
+			// 좌표가 최신이라면 geocodeDealer 는 아무일도 하지않음 
+			dealers.forEach(geocodeDealer);
+			//  지오코딩 결과를 캐쉬파일에 업데이트함 
+			fs.writeFileSync(
+				dealerCache.jsonFile, JSON.stringify(dealers)
+			);
+			fs.writeFileSync(__dirname + '/public/js/dealers-googleMapMarkers.js', dealersToGoogleMaps(dealers));
+			dealerCache.lastRefreshed = Date.now();
+
+			console.log('-----------------------')
+			console.log('refresh ended...')
+			console.log('-----------------------')
+			cb();
+		});
+	}
+};
+
+function refreshDealerCacheForever(){
+	dealerCache.refresh(function(){
+		setTimeout(refreshDealerCacheForever,
+			dealerCache.refreshInterval);
+	});
+}
+if(!fs.existsSync(dealerCache.jsonFile)) 
+	fs.writeFileSync(JSON.stringify([]));
+refreshDealerCacheForever();
+
+//weather api
+var getWeatherData = (function(){
+	var c = {
+		refreshed: 0,
+		refreshing: false,
+		updateFrequency: 360000,
+		locations: [
+			{ name: 'Portland' },
+			{ name: 'Bend' },
+			{ name: 'Manzanita' },
+		]
+	};
+
+	return function() {
+		if(!c.refreshing && Date.now() > c.refreshed + c.updateFrequency){
+			c.refreshing = true;
+			var promises = [];
+			c.locations.forEach(function(loc){
+				var deferred = Q.defer();
+				var url = 'http://api.wunderground.com/api/' +
+						credentials.WeatherUnderground.ApiKey + 
+						'/conditions/q/OR/' + loc.name + '.json';
+				http.get(url, function(res){
+					var body = '';
+					res.on('data', function(chunk){
+						body += chunk;
+					});
+					res.on('end', function(){
+						body = JSON.parse(body);
+						loc.forecastUrl = body.current_observation.forecast_url;
+						loc.iconUrl = body.current_observation.icon_url;
+						loc.weather = body.current_observation.weather;
+						loc.temp = body.current_observation.temperature_string;
+						deferred.resolve();
+					});
+				});
+				promises.push(deferred);
+			});
+			Q.all(promises).then(function(){
+				c.refreshing = false;
+				c.refreshed = Date.now();
+			});
+		}
+		return { locations: c.locations };
+	}
+})();
+
+getWeatherData();
 
 // routes
 require('./routes.js')(app);
@@ -325,7 +586,6 @@ app.get('/sales', employeeOnly, function(req, res){
 
 // auto view rendering
 var autoViews = {};
-var fs = require('fs');
 
 app.use(function(req, res, next){
 	var path = req.path.toLowerCase();

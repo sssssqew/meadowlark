@@ -6,6 +6,7 @@ var contest = require('./handlers/contest.js');
 var cart = require('./handlers/cart.js');
 var vacations = require('./handlers/vacations.js');
 var helpers = require('./helpers.js');
+var dealers = require('./handlers/dealers.js');
 
 module.exports = function(app){
 
@@ -55,7 +56,10 @@ app
 		.post('/notify-me-when-in-season', vacations.notifyPost) //^
 		.get('/set-currency/:currency', vacations.setCurrency) //^
 
+		// dealers
+		app.get('/dealers', dealers.home);
 
+		
 		// // test sub domain
 		// admin
 		// 		.get('/', function(req, res){
